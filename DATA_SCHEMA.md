@@ -29,3 +29,5 @@
 7. averageMonthlyInflow
    - Average monthly account inflow
    - Type: Decimal
+
+The dataset used by CredXAI is synthetically generated for research and demonstration purposes. It does not represent real customer or banking data. The synthetic data generation process introduces controlled relationships between alternative-data features and the target default variable to enable model training and evaluation.
