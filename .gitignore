@@ -1,0 +1,38 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Home Credit datasets
+data/raw/
+
+# Large processed datasets
+data/processed/*.csv
+
+# External datasets
+data/external/*.csv
+data/external/**/*.parquet
+data/external/electric_sheep_africa/
+data/external/electric_sheep_india/
+
+# Outputs
+outputs/
+*.log
+
+# Java / Maven
+**/target/
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Python/Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
