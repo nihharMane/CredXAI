@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import predictionService from '../services/predictionService';
 import TraditionalResultView from '../components/TraditionalResultView';
+import { logger } from '../utils/logger';
 import { 
   FileText, 
   User, 
@@ -57,6 +58,9 @@ const INITIAL_FORM_STATE = {
   income_type: 'Working',
   monthly_income: 45000,
   credit_amount: 250000,
+  existing_monthly_debt: 0,
+  repayment_history: 'UNKNOWN',
+  purpose: 'PERSONAL',
   monthly_installment: 12500,
   goods_price: 240000,
   // Group 3: Assets and housing information
@@ -102,33 +106,48 @@ const TraditionalAssessmentPage = () => {
     }
 
     const childrenNum = Number(formData.children);
-    if (isNaN(childrenNum) || childrenNum < 0) {
-      errors.children = 'Children count must be 0 or higher.';
+    if (isNaN(childrenNum) || childrenNum < 0 || childrenNum > 20) {
+      errors.children = 'Children count must be between 0 and 20.';
     }
 
     const familyNum = Number(formData.family_members);
-    if (isNaN(familyNum) || familyNum < 1) {
-      errors.family_members = 'Family members must be at least 1.';
+    if (isNaN(familyNum) || familyNum < 1 || familyNum > 20) {
+      errors.family_members = 'Family members must be between 1 and 20.';
     }
 
     const incomeNum = Number(formData.monthly_income);
-    if (isNaN(incomeNum) || incomeNum <= 0) {
-      errors.monthly_income = 'Monthly income must be greater than 0.';
+    if (isNaN(incomeNum) || incomeNum <= 0 || incomeNum > 1000000000) {
+      errors.monthly_income = 'Monthly income must be greater than 0 and within the supported range.';
     }
 
     const creditNum = Number(formData.credit_amount);
-    if (isNaN(creditNum) || creditNum <= 0) {
+    if (isNaN(creditNum) || creditNum <= 0 || creditNum > 9999999999999.99) {
       errors.credit_amount = 'Credit amount must be greater than 0.';
+    } else if (Math.abs(Math.round(creditNum * 100) - creditNum * 100) > 1e-7) {
+      errors.credit_amount = 'Credit amount can have at most two decimal places.';
+    }
+
+    const existingDebtNum = Number(formData.existing_monthly_debt);
+    if (!Number.isFinite(existingDebtNum) || existingDebtNum < 0 || existingDebtNum > 9999999999999.99) {
+      errors.existing_monthly_debt = 'Existing monthly obligations must be 0 or more and within the supported range.';
+    } else if (Math.abs(Math.round(existingDebtNum * 100) - existingDebtNum * 100) > 1e-7) {
+      errors.existing_monthly_debt = 'Existing monthly obligations can have at most two decimal places.';
+    }
+
+    if (!formData.purpose.trim()) {
+      errors.purpose = 'Loan purpose is required.';
+    } else if (formData.purpose.trim().length > 120) {
+      errors.purpose = 'Loan purpose must be 120 characters or fewer.';
     }
 
     const installmentNum = Number(formData.monthly_installment);
-    if (isNaN(installmentNum) || installmentNum <= 0) {
-      errors.monthly_installment = 'Monthly installment must be greater than 0.';
+    if (isNaN(installmentNum) || installmentNum <= 0 || installmentNum > 1000000000) {
+      errors.monthly_installment = 'Monthly installment must be greater than 0 and within the supported range.';
     }
 
     const goodsNum = Number(formData.goods_price);
-    if (isNaN(goodsNum) || goodsNum <= 0) {
-      errors.goods_price = 'Goods price must be greater than 0.';
+    if (isNaN(goodsNum) || goodsNum <= 0 || goodsNum > 1000000000) {
+      errors.goods_price = 'Goods price must be greater than 0 and within the supported range.';
     }
 
     if (!formData.income_type) {
@@ -156,12 +175,13 @@ const TraditionalAssessmentPage = () => {
       return;
     }
 
-    if (!user?.id) {
-      setApiError('Authenticated user identity not found. Please log in again.');
+    if (!user) {
+      setApiError('Your session could not be verified. Please log in again.');
       return;
     }
 
     setSubmitting(true);
+    logger.info('assessment.submission.started', { model: 'traditional' });
 
     // Prepare exact DTO payload matching TraditionalPredictionRequest.java
     const payload = {
@@ -171,6 +191,9 @@ const TraditionalAssessmentPage = () => {
       income_type: formData.income_type,
       monthly_income: parseFloat(formData.monthly_income),
       credit_amount: parseFloat(formData.credit_amount),
+      existing_monthly_debt: parseFloat(formData.existing_monthly_debt),
+      repayment_history: formData.repayment_history,
+      purpose: formData.purpose.trim(),
       monthly_installment: parseFloat(formData.monthly_installment),
       goods_price: parseFloat(formData.goods_price),
       owns_car: formData.owns_car,
@@ -180,11 +203,12 @@ const TraditionalAssessmentPage = () => {
     };
 
     try {
-      const responseData = await predictionService.predictTraditional(user.id, payload);
+      const responseData = await predictionService.predictTraditional(payload);
       setPredictionResult(responseData);
+      logger.info('assessment.submission.succeeded', { model: 'traditional', applicationId: responseData.application_id });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error('Traditional assessment failed:', err);
+      logger.errorOnce(err, 'assessment.submission.failed', { model: 'traditional' });
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -236,7 +260,7 @@ const TraditionalAssessmentPage = () => {
           Traditional Credit Risk Assessment
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
-          Input applicant financial balance attributes to score default likelihood against calibrated logistic benchmarks. Results include exact factor contributions for auditable XAI disclosures.
+          Enter monthly income, proposed credit, obligations, and profile attributes. The current model returns an uncalibrated estimate and coefficient-based factors for review; it is not a lending decision.
         </p>
       </div>
 
@@ -317,7 +341,7 @@ const TraditionalAssessmentPage = () => {
                 <input
                   type="number"
                   min="1"
-                  max="25"
+                  max="20"
                   value={formData.family_members}
                   onChange={(e) => handleInputChange('family_members', e.target.value)}
                   className={`w-full px-3.5 py-2.5 bg-navy-950/80 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none transition-all ${
@@ -363,12 +387,13 @@ const TraditionalAssessmentPage = () => {
               {/* Monthly Income */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Monthly Income (₹ / $) <span className="text-brand-rose">*</span>
+                  Monthly Income (INR / month) <span className="text-brand-rose">*</span>
                 </label>
                 <input
                   type="number"
                   min="1"
-                  step="any"
+                  max="1000000000"
+                  step="0.01"
                   value={formData.monthly_income}
                   onChange={(e) => handleInputChange('monthly_income', e.target.value)}
                   className={`w-full px-3.5 py-2.5 bg-navy-950/80 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none transition-all ${
@@ -385,12 +410,13 @@ const TraditionalAssessmentPage = () => {
               {/* Requested Credit Amount */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Requested Credit Amount <span className="text-brand-rose">*</span>
+                  Requested Credit Amount (INR) <span className="text-brand-rose">*</span>
                 </label>
                 <input
                   type="number"
                   min="1"
-                  step="any"
+                  max="9999999999999.99"
+                  step="0.01"
                   value={formData.credit_amount}
                   onChange={(e) => handleInputChange('credit_amount', e.target.value)}
                   className={`w-full px-3.5 py-2.5 bg-navy-950/80 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none transition-all ${
@@ -407,11 +433,12 @@ const TraditionalAssessmentPage = () => {
               {/* Monthly Installment (Annuity) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Monthly Installment (Annuity) <span className="text-brand-rose">*</span>
+                  Monthly Installment / EMI (INR / month) <span className="text-brand-rose">*</span>
                 </label>
                 <input
                   type="number"
                   min="1"
+                  max="1000000000"
                   step="any"
                   value={formData.monthly_installment}
                   onChange={(e) => handleInputChange('monthly_installment', e.target.value)}
@@ -426,14 +453,45 @@ const TraditionalAssessmentPage = () => {
                 {fieldErrors.monthly_installment && <p className="text-[11px] text-brand-rose mt-1">{fieldErrors.monthly_installment}</p>}
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Existing Monthly Debt Obligations (INR / month) <span className="text-brand-rose">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="9999999999999.99"
+                  step="0.01"
+                  value={formData.existing_monthly_debt}
+                  onChange={(e) => handleInputChange('existing_monthly_debt', e.target.value)}
+                  className={`w-full px-3.5 py-2.5 bg-navy-950/80 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none transition-all ${fieldErrors.existing_monthly_debt ? 'border-brand-rose' : 'border-navy-700 focus:border-brand-cyan focus:ring-1 focus:ring-brand-cyan'}`}
+                  required
+                />
+                {fieldErrors.existing_monthly_debt && <p className="text-[11px] text-brand-rose mt-1">{fieldErrors.existing_monthly_debt}</p>}
+                <p className="text-[11px] text-slate-500 mt-1">Recorded for application context; the current traditional score does not use this separate field.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Self-reported repayment history</label>
+                <select value={formData.repayment_history} onChange={(e) => handleInputChange('repayment_history', e.target.value)} className="w-full px-3.5 py-2.5 bg-navy-950/80 border border-navy-700 rounded-xl text-sm text-white">
+                  <option value="UNKNOWN">Not provided / unknown</option>
+                  <option value="CURRENT">Payments current</option>
+                  <option value="LATE_1_30">Late by 1–30 days</option>
+                  <option value="LATE_31_90">Late by 31–90 days</option>
+                  <option value="LATE_OVER_90">Late by more than 90 days</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">Saved as self-reported context; not used by the current model.</p>
+              </div>
+
               {/* Goods Price */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Purchased Goods Price <span className="text-brand-rose">*</span>
+                  Purchased Goods Price (INR) <span className="text-brand-rose">*</span>
                 </label>
                 <input
                   type="number"
                   min="1"
+                  max="1000000000"
                   step="any"
                   value={formData.goods_price}
                   onChange={(e) => handleInputChange('goods_price', e.target.value)}
@@ -528,6 +586,13 @@ const TraditionalAssessmentPage = () => {
                 </select>
               </div>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 p-4 rounded-xl bg-navy-900/50 border border-navy-800">
+            <label className="block text-xs font-semibold text-slate-300">Loan purpose
+              <input type="text" maxLength="120" required value={formData.purpose} onChange={(e) => handleInputChange('purpose', e.target.value)} className="mt-1 w-full px-3.5 py-2.5 bg-navy-950/80 border border-navy-700 rounded-xl text-sm text-white" placeholder="Personal, home, education, business..." />
+              {fieldErrors.purpose && <p className="text-[11px] text-brand-rose mt-1">{fieldErrors.purpose}</p>}
+            </label>
           </div>
 
           {/* Submission Bar */}

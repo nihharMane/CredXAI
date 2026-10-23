@@ -67,7 +67,7 @@ const RegisterPage = () => {
 
           <h2 className="text-xl font-bold text-white mb-2">Create Account</h2>
           <p className="text-xs text-slate-400 mb-6">
-            Register as a credit risk analyst or loan officer to start scoring applications.
+            Create a local prototype account to explore the assessment workflow.
           </p>
 
           {formError && (

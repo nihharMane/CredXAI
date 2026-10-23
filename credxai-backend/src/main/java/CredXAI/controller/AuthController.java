@@ -27,10 +27,9 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
             AuthResponse response = authService.register(request);
-            log.info("Registration endpoint completed successfully");
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException ex) {
-            log.warn("Registration request rejected: {}", ex.getMessage());
+            log.warn("Registration request rejected reason=invalid_input");
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
     }
@@ -39,11 +38,10 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
             AuthResponse response = authService.login(request);
-            log.info("Login endpoint completed successfully");
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException ex) {
             // Keep login failures generic; never log credentials or tokens.
-            log.warn("Login attempt rejected");
+            log.warn("Login attempt rejected reason=invalid_credentials");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid email or password."));
         }

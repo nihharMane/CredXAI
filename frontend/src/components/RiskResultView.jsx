@@ -25,7 +25,7 @@ import {
  * - explanation (array of strings)
  * - disclaimer (string)
  */
-const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment' }) => {
+const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment', showReset = true }) => {
   if (!result) return null;
 
   const riskBand = result.risk_band || 'UNKNOWN';
@@ -49,7 +49,7 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
           badgeBg: 'bg-brand-emerald/20 text-brand-emerald border-brand-emerald/40',
           barColor: 'bg-brand-emerald',
           icon: ShieldCheck,
-          summary: 'The model estimates a low probability of default within safe underwriting guidelines.'
+          summary: 'The model places this assessment in its low band. This category is a supporting signal, not a lending decision.'
         };
       case 'MEDIUM_RISK':
         return {
@@ -60,7 +60,7 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
           badgeBg: 'bg-brand-amber/20 text-brand-amber border-brand-amber/40',
           barColor: 'bg-brand-amber',
           icon: AlertTriangle,
-          summary: 'The model estimates a moderate default probability warranting standard underwriting review.'
+          summary: 'The model places this assessment in its moderate band. This category is a supporting signal, not a lending decision.'
         };
       case 'HIGH_RISK':
       default:
@@ -72,7 +72,7 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
           badgeBg: 'bg-brand-rose/20 text-brand-rose border-brand-rose/40',
           barColor: 'bg-brand-rose',
           icon: ShieldAlert,
-          summary: 'The model estimates elevated default risk driven by key behavioral and financial factors.'
+          summary: 'The model places this assessment in its high band. This category is a supporting signal, not a lending decision.'
         };
     }
   };
@@ -117,7 +117,7 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
           {/* Probability Dial / Metric */}
           <div className="bg-navy-950/80 border border-navy-800 rounded-2xl p-5 text-center min-w-[200px] shadow-lg flex-shrink-0">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              Estimated Default Probability
+              Estimated Adverse-Outcome Probability
             </div>
             <div className={`text-4xl font-extrabold tracking-tight ${riskMeta.color}`}>
               {probabilityPercent.toFixed(2)}%
@@ -129,11 +129,22 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
               />
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-              <span>0% (Safe)</span>
-              <span>100% (Default)</span>
+              <span>0% (lower score)</span>
+              <span>100% (higher score)</span>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl bg-navy-900/70 border border-navy-800 p-4 text-xs">
+        <div><span className="text-slate-500">Application</span><p className="mt-1 text-white font-mono">{result.application_id ? `#${result.application_id}` : 'Not available'}</p></div>
+        <div><span className="text-slate-500">Requested amount</span><p className="mt-1 text-white">{result.requested_loan_amount != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(result.requested_loan_amount)) : 'Not available'}</p></div>
+        <div><span className="text-slate-500">Assessment time</span><p className="mt-1 text-white">{result.assessment_timestamp ? new Date(result.assessment_timestamp).toLocaleString() : 'Not available'}</p></div>
+        <div><span className="text-slate-500">Model version</span><p className="mt-1 text-white font-mono">{result.model_version || 'Unversioned'}</p></div>
+        <div><span className="text-slate-500">Application status</span><p className="mt-1 text-white">{result.application_status || 'COMPLETED'}</p></div>
+        <div><span className="text-slate-500">Existing monthly debt</span><p className="mt-1 text-white">{result.existing_monthly_debt != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(result.existing_monthly_debt)) : 'Not available'}</p></div>
+        <div><span className="text-slate-500">Self-reported repayment history</span><p className="mt-1 text-white">{(result.repayment_history || 'UNKNOWN').replaceAll('_', ' ')}</p></div>
+        {result.purpose && <div className="sm:col-span-2 lg:col-span-4"><span className="text-slate-500">Loan purpose</span><p className="mt-1 text-white break-words">{result.purpose}</p></div>}
       </div>
 
       {/* 2. Factor Attributions (Explainable AI Waterfall Bars) */}
@@ -226,6 +237,9 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
           )}
         </div>
       </div>
+      <p className="text-[11px] text-slate-500 -mt-4">
+        Signed factor values are contributions to the model’s log-odds score: positive values raise the estimated odds of the adverse target and negative values lower them. They are associations, not causes, and are not percentage-point changes.
+      </p>
 
       {/* 3. Natural Language Explanation Card */}
       {explanations.length > 0 && (
@@ -254,17 +268,22 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
           </p>
         </div>
       )}
+      <p className="text-xs text-slate-400">
+        CredXAI is a decision-support prototype. Probabilities and rule-based risk bands are not validated lending decisions or guarantees. Review the data and limitations before relying on an assessment.
+      </p>
 
       {/* 5. Actions: Run Another Assessment */}
-      <div className="pt-2 flex justify-end">
-        <button
-          onClick={onReset}
-          className="px-5 py-2.5 rounded-xl bg-navy-800 hover:bg-navy-700 text-white text-xs sm:text-sm font-semibold border border-navy-700 transition-all flex items-center gap-2 shadow-md"
-        >
-          <RotateCcw className="w-4 h-4 text-brand-cyan" />
-          <span>Start New Assessment</span>
-        </button>
-      </div>
+      {showReset && (
+        <div className="pt-2 flex justify-end">
+          <button
+            onClick={onReset}
+            className="print:hidden px-5 py-2.5 rounded-xl bg-navy-800 hover:bg-navy-700 text-white text-xs sm:text-sm font-semibold border border-navy-700 transition-all flex items-center gap-2 shadow-md"
+          >
+            <RotateCcw className="w-4 h-4 text-brand-cyan" />
+            <span>Start New Assessment</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

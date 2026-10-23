@@ -2,18 +2,14 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
-  LayoutDashboard, 
   FileText, 
-  Sparkles, 
   History, 
   ShieldCheck, 
   LogOut, 
   User as UserIcon, 
   Menu, 
   X, 
-  Cpu, 
-  ChevronRight,
-  Server
+  Cpu
 } from 'lucide-react';
 
 const MainLayout = () => {
@@ -28,19 +24,17 @@ const MainLayout = () => {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Traditional Assessment', path: '/assess/traditional', icon: FileText, badge: 'Home Credit' },
-    { name: 'Alternative Assessment', path: '/assess/alternative', icon: Sparkles, badge: 'Thin-File ML' },
-    { name: 'Recent Evaluations', path: '/history', icon: History },
+    { name: 'New application', path: '/dashboard', icon: FileText },
+    { name: 'My Applications', path: '/history', icon: History },
     { name: 'Account Profile', path: '/profile', icon: UserIcon },
   ];
 
   const getPageTitle = (pathname) => {
     if (pathname.includes('/assess/traditional')) return 'Traditional Credit Risk Assessment';
     if (pathname.includes('/assess/alternative')) return 'Alternative Data Risk Assessment';
-    if (pathname.includes('/history')) return 'Recent Credit Assessments';
+    if (pathname.includes('/history')) return 'My Applications';
     if (pathname.includes('/profile')) return 'Account & Security Profile';
-    return 'Credit Risk Intelligence Dashboard';
+    return 'Applicant Dashboard';
   };
 
   return (
@@ -64,7 +58,7 @@ const MainLayout = () => {
 
         {/* Navigation Section */}
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
-          Underwriting Console
+              Applicant Portal
         </div>
         <nav className="flex-1 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
@@ -113,7 +107,7 @@ const MainLayout = () => {
                 {user?.fullName || 'Risk Analyst'}
               </div>
               <div className="text-xs text-slate-400 truncate">
-                {user?.email || 'analyst@credxai.internal'}
+                {user?.email || 'applicant@example.com'}
               </div>
             </div>
           </NavLink>

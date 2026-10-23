@@ -16,7 +16,9 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(List.of(
-                "https://credxai-frontend.onrender.com"
+                "https://credxai-frontend.onrender.com",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173"
         ));
 
         config.setAllowedMethods(List.of(
@@ -24,6 +26,7 @@ public class CorsConfig {
         ));
 
         config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("X-Correlation-ID"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =

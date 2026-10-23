@@ -1,5 +1,6 @@
 
 import apiClient from './apiClient';
+import { createCorrelationId, logger } from '../utils/logger';
 
 /**
  * Check the health of a deployed ML service.
@@ -15,12 +16,15 @@ async function checkMlHealth(baseUrl) {
 
   try {
     const url = `${baseUrl.replace(/\/+$/, '')}/health`;
+    const correlationId = createCorrelationId();
 
     const response = await fetch(url, {
       signal: AbortSignal.timeout(10000),
+      headers: { 'X-Correlation-ID': correlationId },
     });
 
     if (!response.ok) {
+      logger.warn('health.ml.unavailable', { status: response.status, correlationId });
       return {
         status: 'OFFLINE',
         error: `Health check returned HTTP ${response.status}`,
@@ -46,11 +50,13 @@ async function checkMlHealth(baseUrl) {
         String(data?.status ?? '').toLowerCase()
       );
 
+    logger.debug('health.ml.checked', { status: isHealthy ? 'ONLINE' : 'OFFLINE', correlationId });
     return {
       status: isHealthy ? 'ONLINE' : 'OFFLINE',
       details: data,
     };
   } catch (error) {
+    logger.warn('health.ml.unreachable', { errorType: error?.name || 'Error' });
     return {
       status: 'UNREACHABLE',
       error: error.message,

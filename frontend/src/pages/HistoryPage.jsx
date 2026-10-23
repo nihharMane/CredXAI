@@ -17,14 +17,19 @@ import {
   Inbox, 
   AlertCircle,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
+import { downloadAssessmentPdf } from '../utils/assessmentPdf';
+import { logger } from '../utils/logger';
 
 const HistoryPage = () => {
   const { user } = useAuth();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reportError, setReportError] = useState('');
+  const [downloadingId, setDownloadingId] = useState(null);
 
   // Filters
   const [modelFilter, setModelFilter] = useState('ALL'); // ALL, TRADITIONAL_DATA, ALTERNATIVE_DATA
@@ -35,9 +40,11 @@ const HistoryPage = () => {
     setError(null);
     try {
       const data = await predictionService.getHistory();
-      setApplications(Array.isArray(data) ? data : []);
+      const items = Array.isArray(data) ? data : [];
+      setApplications(items);
+      logger.info('applications.history.loaded', { count: items.length });
     } catch (err) {
-      console.error('Failed to load application history:', err);
+      logger.errorOnce(err, 'applications.history.failed', { operation: 'load' });
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -52,6 +59,21 @@ const HistoryPage = () => {
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  const handleDownloadReport = async (applicationId) => {
+    setReportError('');
+    setDownloadingId(applicationId);
+    try {
+      const record = await predictionService.getApplication(applicationId);
+      downloadAssessmentPdf(record);
+      logger.info('assessment.pdf.downloaded', { applicationId: record.id });
+    } catch (downloadError) {
+      logger.errorOnce(downloadError, 'assessment.pdf.download_failed', { applicationId });
+      setReportError(downloadError.response?.data?.message || downloadError.message || 'Unable to download this assessment report.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   // Filter application list
   const filteredApplications = applications.filter((app) => {
@@ -110,13 +132,13 @@ const HistoryPage = () => {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-blue/20 border border-brand-blue/30 text-brand-cyan text-xs font-semibold mb-2">
             <History className="w-3.5 h-3.5" />
-            <span>Audited Underwriting History</span>
+            <span>Your saved applications</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Recent Credit Evaluations
+            Application history
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Immutable application logs persisted in MySQL. Each evaluation records the model type, calculated default probability, assigned risk tier, and audit timestamp.
+            View your saved applications, review their assessment results, and download a report from the saved prediction.
           </p>
         </div>
 
@@ -129,6 +151,8 @@ const HistoryPage = () => {
           <span>Refresh Records</span>
         </button>
       </div>
+
+      {reportError && <div role="alert" className="rounded-xl border border-brand-rose/30 bg-brand-rose/10 px-4 py-3 text-sm text-brand-rose">{reportError}</div>}
 
       {/* Filter Toolbar */}
       <div className="bg-navy-900/80 border border-navy-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -186,7 +210,7 @@ const HistoryPage = () => {
       ) : loading ? (
         <div className="py-20 text-center rounded-2xl bg-navy-900/40 border border-navy-800 space-y-3">
           <div className="w-10 h-10 border-4 border-brand-cyan/20 border-t-brand-cyan rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs sm:text-sm text-slate-400">Querying MySQL credit applications for authenticated analyst...</p>
+          <p className="text-xs sm:text-sm text-slate-400">Loading your saved application history…</p>
         </div>
       ) : filteredApplications.length === 0 ? (
         /* Empty State */
@@ -197,7 +221,7 @@ const HistoryPage = () => {
           <h3 className="text-base font-bold text-white">No Application Records Found</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
             {applications.length === 0
-              ? "You haven't run any credit assessments under your analyst account yet. Run a traditional or alternative evaluation to populate records."
+              ? "You don't have any saved applications yet. Start a traditional or alternative application to see your assessment here."
               : 'No records match the current filter criteria. Try resetting the model or risk band filters.'}
           </p>
           {applications.length === 0 && (
@@ -227,11 +251,16 @@ const HistoryPage = () => {
               <thead className="bg-navy-950/80 text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-navy-800">
                 <tr>
                   <th className="px-6 py-4">App ID</th>
-                  <th className="px-6 py-4">Evaluation Model</th>
+                  <th className="px-6 py-4">Assessment Model</th>
+                  <th className="px-6 py-4">Requested Amount</th>
+                  <th className="px-6 py-4">Existing Debt / Month</th>
+                  <th className="px-6 py-4">Repayment History</th>
+                  <th className="px-6 py-4">Purpose</th>
                   <th className="px-6 py-4">Risk Tier</th>
-                  <th className="px-6 py-4">Default Probability</th>
+                  <th className="px-6 py-4">Adverse-Outcome Estimate</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Created Timestamp</th>
+                  <th className="px-6 py-4">Assessment report</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-800/60 font-sans">
@@ -267,8 +296,21 @@ const HistoryPage = () => {
                             <div className="text-[11px] text-slate-500 font-mono">
                               {app.modelType}
                             </div>
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              Version: {app.modelVersion || 'unversioned'}
+                            </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 font-mono">
+                        {app.loanAmount != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(app.loanAmount)) : '—'}
+                      </td>
+                      <td className="px-6 py-4 font-mono">
+                        {app.existingMonthlyDebt != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(app.existingMonthlyDebt)) : '—'}
+                      </td>
+                      <td className="px-6 py-4">{app.repaymentHistory ? app.repaymentHistory.replaceAll('_', ' ') : 'UNKNOWN'}</td>
+                      <td className="px-6 py-4 max-w-xs truncate" title={app.purpose || ''}>
+                        {app.purpose || '—'}
                       </td>
                       <td className="px-6 py-4">
                         {getRiskBadge(app.riskBand)}
@@ -297,6 +339,15 @@ const HistoryPage = () => {
                       </td>
                       <td className="px-6 py-4 text-slate-400 font-mono text-[11px]">
                         {formatDate(app.createdAt)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-start gap-2">
+                          <Link to={`/history/${app.id}`} className="text-brand-cyan hover:text-cyan-300 font-semibold">View assessment</Link>
+                          <button type="button" onClick={() => handleDownloadReport(app.id)} disabled={downloadingId === app.id} className="inline-flex items-center gap-1 text-slate-300 hover:text-white disabled:opacity-50">
+                            <Download className="w-3.5 h-3.5" />
+                            {downloadingId === app.id ? 'Preparing…' : 'Download PDF'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
