@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Download, AlertCircle, FilePlus2, History } from 'lucide-react';
 import predictionService from '../services/predictionService';
 import RiskResultView from '../components/RiskResultView';
 import { downloadAssessmentPdf } from '../utils/assessmentPdf';
@@ -73,7 +73,11 @@ const AssessmentReportPage = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <Link to="/history" className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"><ArrowLeft className="w-4 h-4" />Back to history</Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"><ArrowLeft className="w-4 h-4" />Dashboard</Link>
+          <Link to="/history" className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"><History className="w-4 h-4" />Application history</Link>
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"><FilePlus2 className="w-4 h-4" />New application</Link>
+        </div>
         <button onClick={handleDownload} disabled={downloading} className="inline-flex items-center gap-2 rounded-xl bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-60"><Download className="w-4 h-4" />{downloading ? 'Preparing PDF…' : 'Download PDF'}</button>
       </div>
       {downloadError && <div role="alert" className="rounded-xl border border-brand-rose/30 bg-brand-rose/10 px-4 py-3 text-sm text-brand-rose">{downloadError}</div>}
