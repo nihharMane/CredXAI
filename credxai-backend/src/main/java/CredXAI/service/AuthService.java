@@ -44,9 +44,10 @@ public class AuthService {
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.password));
         user.setRole("USER");
+        user.setEnabled(true);
         User saved = userRepository.save(user);
 
-        log.info("Registered user with id {}", saved.getId());
+        log.info("Applicant registration completed");
         return new AuthResponse(saved.getId(), saved.getFullName(), saved.getEmail(), saved.getRole(), null);
     }
 
@@ -60,7 +61,7 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
-        log.info("User authenticated successfully with id {}", user.getId());
+        log.info("Applicant authentication completed");
         return new AuthResponse(user.getId(), user.getFullName(), user.getEmail(), user.getRole(), token);
     }
 }

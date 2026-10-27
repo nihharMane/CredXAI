@@ -2,31 +2,25 @@ import apiClient from './apiClient';
 
 /**
  * Prediction Service calling Spring Boot endpoints:
- * - POST /api/predictions/traditional?userId={id}
- * - POST /api/predictions/alternative?userId={id}
+ * - POST /api/predictions/traditional
+ * - POST /api/predictions/alternative
  */
 export const predictionService = {
   /**
    * Run traditional credit prediction
-   * @param {number|string} userId
-   * @param {Object} payload TraditionalPredictionRequest
+    * @param {Object} payload TraditionalPredictionRequest
    */
-  async predictTraditional(userId, payload) {
-    const response = await apiClient.post('/api/predictions/traditional', payload, {
-      params: { userId },
-    });
+  async predictTraditional(payload) {
+    const response = await apiClient.post('/api/predictions/traditional', payload);
     return response.data;
   },
 
   /**
    * Run alternative-data credit prediction
-   * @param {number|string} userId
-   * @param {Object} payload AlternativePredictionRequest
+    * @param {Object} payload AlternativePredictionRequest
    */
-  async predictAlternative(userId, payload) {
-    const response = await apiClient.post('/api/predictions/alternative', payload, {
-      params: { userId },
-    });
+  async predictAlternative(payload) {
+    const response = await apiClient.post('/api/predictions/alternative', payload);
     return response.data;
   },
 
@@ -36,6 +30,11 @@ export const predictionService = {
    */
   async getHistory() {
     const response = await apiClient.get('/api/predictions/history');
+    return response.data;
+  },
+
+  async getApplication(applicationId) {
+    const response = await apiClient.get(`/api/predictions/history/${applicationId}`);
     return response.data;
   },
 };

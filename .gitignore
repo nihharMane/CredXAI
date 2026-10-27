@@ -36,3 +36,7 @@ outputs/
 # OS
 .DS_Store
 Thumbs.db
+credxai-backend/run-credxai.ps1
+credxai_synthetic_alternative_profiles_5000.csv
+41_train_new_alternative_model.py
+models

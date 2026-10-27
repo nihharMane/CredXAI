@@ -6,6 +6,7 @@ import CredXAI.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CreditApplicationRepository
         extends JpaRepository<CreditApplication, Long> {
@@ -15,4 +16,6 @@ public interface CreditApplicationRepository
     List<CreditApplication> findByUserId(Long userId);
 
     List<CreditApplication> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    Optional<CreditApplication> findByIdAndUserId(Long id, Long userId);
 }

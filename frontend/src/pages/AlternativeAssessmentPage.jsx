@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import predictionService from '../services/predictionService';
 import RiskResultView from '../components/RiskResultView';
+import { logger } from '../utils/logger';
 import { 
   Sparkles, 
   User, 
@@ -41,6 +42,10 @@ const INITIAL_FORM_STATE = {
   overdraft_frequency_percent: 5,
   bill_payment_consistency_percent: 95,
   cashflow_stability_percent: 85,
+  loan_amount: 250000,
+  purpose: 'PERSONAL',
+  existing_monthly_debt: 0,
+  repayment_history: 'UNKNOWN',
 };
 
 const AlternativeAssessmentPage = () => {
@@ -97,14 +102,20 @@ const AlternativeAssessmentPage = () => {
       errors.average_balance = 'Average bank balance is required.';
     }
 
-    const overdraftNum = Number(formData.overdraft_frequency_percent);
-    if (isNaN(overdraftNum) || overdraftNum < 0 || overdraftNum > 100) {
-      errors.overdraft_frequency_percent = 'Overdraft frequency must be between 0% and 100%.';
+    const overdraftValue = String(formData.overdraft_frequency_percent ?? '').trim();
+    const overdraftNum = Number(overdraftValue);
+    if (!overdraftValue || !Number.isFinite(overdraftNum) || overdraftNum < 0 || overdraftNum > 100) {
+      errors.overdraft_frequency_percent = 'Enter overdraft frequency from 0% to 100%.';
+    } else if (Math.abs(Math.round(overdraftNum * 100) - overdraftNum * 100) > 1e-7) {
+      errors.overdraft_frequency_percent = 'Use no more than two decimal places.';
     }
 
-    const billNum = Number(formData.bill_payment_consistency_percent);
-    if (isNaN(billNum) || billNum < 0 || billNum > 100) {
-      errors.bill_payment_consistency_percent = 'Bill payment consistency must be between 0% and 100%.';
+    const billValue = String(formData.bill_payment_consistency_percent ?? '').trim();
+    const billNum = Number(billValue);
+    if (!billValue || !Number.isFinite(billNum) || billNum < 0 || billNum > 100) {
+      errors.bill_payment_consistency_percent = 'Enter bill payment consistency from 0% to 100%.';
+    } else if (Math.abs(Math.round(billNum * 100) - billNum * 100) > 1e-7) {
+      errors.bill_payment_consistency_percent = 'Use no more than two decimal places.';
     }
 
     const cashflowNum = Number(formData.cashflow_stability_percent);
@@ -133,6 +144,7 @@ const AlternativeAssessmentPage = () => {
     }
 
     setSubmitting(true);
+    logger.info('assessment.submission.started', { model: 'alternative' });
 
     // Prepare exact DTO payload matching AlternativePredictionRequest.java:
     // public String age_range;
@@ -152,14 +164,19 @@ const AlternativeAssessmentPage = () => {
       overdraft_frequency_percent: parseFloat(formData.overdraft_frequency_percent),
       bill_payment_consistency_percent: parseFloat(formData.bill_payment_consistency_percent),
       cashflow_stability_percent: parseFloat(formData.cashflow_stability_percent),
+      loan_amount: parseFloat(formData.loan_amount),
+      purpose: formData.purpose,
+      existing_monthly_debt: parseFloat(formData.existing_monthly_debt),
+      repayment_history: formData.repayment_history,
     };
 
     try {
-      const responseData = await predictionService.predictAlternative(user.id, payload);
+      const responseData = await predictionService.predictAlternative(payload);
       setPredictionResult(responseData);
+      logger.info('assessment.submission.succeeded', { model: 'alternative', applicationId: responseData.application_id });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error('Alternative assessment failed:', err);
+      logger.errorOnce(err, 'assessment.submission.failed', { model: 'alternative' });
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -393,7 +410,7 @@ const AlternativeAssessmentPage = () => {
                     type="number"
                     min="0"
                     max="100"
-                    step="0.1"
+                    step="0.01"
                     value={formData.overdraft_frequency_percent}
                     onChange={(e) => handleInputChange('overdraft_frequency_percent', e.target.value)}
                     className={`w-full px-3.5 py-2.5 bg-navy-950/80 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none transition-all pr-8 ${
@@ -409,7 +426,7 @@ const AlternativeAssessmentPage = () => {
                 {fieldErrors.overdraft_frequency_percent && (
                   <p className="text-[11px] text-brand-rose mt-1">{fieldErrors.overdraft_frequency_percent}</p>
                 )}
-                <p className="text-[11px] text-slate-500 mt-1">% of cycles applicant entered negative balance.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Percentage of observed months with overdraft (0–100%, up to two decimal places).</p>
               </div>
 
               {/* Bill Payment Consistency Percent */}
@@ -438,7 +455,7 @@ const AlternativeAssessmentPage = () => {
                 {fieldErrors.bill_payment_consistency_percent && (
                   <p className="text-[11px] text-brand-rose mt-1">{fieldErrors.bill_payment_consistency_percent}</p>
                 )}
-                <p className="text-[11px] text-slate-500 mt-1">% of on-time utility / recurrent bill payments.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Percentage of on-time utility or recurring bill payments (0–100%, up to two decimal places).</p>
               </div>
 
               {/* Cashflow Stability Percent */}
@@ -472,6 +489,23 @@ const AlternativeAssessmentPage = () => {
             </div>
           </div>
 
+          {/* Submission Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-navy-900/50 border border-navy-800">
+            <label className="block text-xs font-semibold text-slate-300">Requested amount (INR)
+              <input type="number" min="0.01" step="0.01" required value={formData.loan_amount} onChange={(e) => handleInputChange('loan_amount', e.target.value)} className="mt-1 w-full px-3.5 py-2.5 bg-navy-950/80 border border-navy-700 rounded-xl text-sm text-white" />
+            </label>
+            <label className="block text-xs font-semibold text-slate-300">Loan purpose
+              <input type="text" maxLength="120" required value={formData.purpose} onChange={(e) => handleInputChange('purpose', e.target.value)} className="mt-1 w-full px-3.5 py-2.5 bg-navy-950/80 border border-navy-700 rounded-xl text-sm text-white" />
+            </label>
+            <label className="block text-xs font-semibold text-slate-300">Existing monthly debt obligations (INR)
+              <input type="number" min="0" step="0.01" required value={formData.existing_monthly_debt} onChange={(e) => handleInputChange('existing_monthly_debt', e.target.value)} className="mt-1 w-full px-3.5 py-2.5 bg-navy-950/80 border border-navy-700 rounded-xl text-sm text-white" />
+            </label>
+            <label className="block text-xs font-semibold text-slate-300">Self-reported repayment history
+              <select value={formData.repayment_history} onChange={(e) => handleInputChange('repayment_history', e.target.value)} className="mt-1 w-full px-3.5 py-2.5 bg-navy-950/80 border border-navy-700 rounded-xl text-sm text-white">
+                <option value="UNKNOWN">Not provided / unknown</option><option value="CURRENT">Payments current</option><option value="LATE_1_30">Late by 1–30 days</option><option value="LATE_31_90">Late by 31–90 days</option><option value="LATE_OVER_90">Late by more than 90 days</option>
+              </select>
+            </label>
+          </div>
           {/* Submission Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-navy-900/60 border border-navy-800">
             <div className="text-xs text-slate-400">

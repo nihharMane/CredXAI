@@ -1,31 +1,50 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pathlib import Path
+import hashlib
+from typing import Literal
 import joblib
 import pandas as pd
 import numpy as np
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+import time
+try:
+    from .logging_config import configure_logging, install_request_logging, log_prediction_endpoint
+except ImportError:
+    from logging_config import configure_logging, install_request_logging, log_prediction_endpoint
 
 # ============================================================
 # CREDXAI - SIMPLE TRADITIONAL CREDIT RISK API
 # Model-based XAI using Logistic Regression coefficients
 # ============================================================
 
-MODEL_PATH = "models/simple_traditional_logistic_regression.pkl"
+MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "simple_traditional_logistic_regression.pkl"
 
-print("=" * 70)
-print("CREDXAI - SIMPLE TRADITIONAL CREDIT RISK API")
-print("=" * 70)
-
-print("\nLoading simplified traditional model...")
-
-model = joblib.load(MODEL_PATH)
-
-print("Model loaded successfully.")
+configure_logging()
+log = logging.getLogger("credxai.traditional")
+model_load_started = time.perf_counter()
+try:
+    model = joblib.load(MODEL_PATH)
+    MODEL_VERSION = f"sha256:{hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()[:12]}"
+    log.info("model loaded model=traditional version=%s duration_ms=%.1f", MODEL_VERSION,
+             (time.perf_counter() - model_load_started) * 1000)
+except Exception:
+    log.exception("model loading failed model=traditional path_exists=%s", MODEL_PATH.is_file())
+    raise
 
 
 # ============================================================
 # FASTAPI
 # ============================================================
+
+@asynccontextmanager
+async def lifespan(_app):
+    log.info("ML service started service=traditional")
+    yield
+    log.info("ML service stopped service=traditional")
+
 
 app = FastAPI(
     title="CredXAI Traditional Credit Risk API",
@@ -34,16 +53,19 @@ app = FastAPI(
         "12 simple applicant inputs with model-based XAI."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
+install_request_logging(app, "traditional")
 
 
 # Allow the deployed CredXAI frontend to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://credxai-frontend.onrender.com"],
+    allow_origins=["https://credxai-frontend.onrender.com", "http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Correlation-ID"],
 )
 
 
@@ -53,29 +75,40 @@ app.add_middleware(
 
 class TraditionalCreditApplication(BaseModel):
 
+    model_config = ConfigDict(allow_inf_nan=False)
+
     age: float = Field(..., ge=18, le=100)
 
     children: int = Field(..., ge=0)
 
     family_members: float = Field(..., ge=1)
 
-    income_type: str
+    income_type: Literal[
+        "Working", "Commercial associate", "Pensioner", "State servant",
+        "Businessman", "Student", "Unemployed", "Maternity leave"
+    ]
 
-    monthly_income: float = Field(..., gt=0)
+    monthly_income: float = Field(..., gt=0, le=1_000_000_000)
 
-    credit_amount: float = Field(..., gt=0)
+    credit_amount: float = Field(..., gt=0, le=9_999_999_999_999.99)
 
-    monthly_installment: float = Field(..., gt=0)
+    monthly_installment: float = Field(..., gt=0, le=1_000_000_000)
 
-    goods_price: float = Field(..., gt=0)
+    goods_price: float = Field(..., gt=0, le=1_000_000_000)
 
-    owns_car: str
+    owns_car: Literal["Y", "N"]
 
-    owns_property: str
+    owns_property: Literal["Y", "N"]
 
-    education: str
+    education: Literal[
+        "Secondary / secondary special", "Higher education",
+        "Incomplete higher", "Lower secondary", "Academic degree"
+    ]
 
-    housing_type: str
+    housing_type: Literal[
+        "House / apartment", "With parents", "Municipal apartment",
+        "Rented apartment", "Office apartment", "Co-op apartment"
+    ]
 
 
 # ============================================================
@@ -88,6 +121,7 @@ def root():
     return {
         "service": "CredXAI Traditional Credit Risk API",
         "model": "Simplified Traditional Logistic Regression",
+        "model_version": MODEL_VERSION,
         "input_features": 12,
         "xai": "Logistic Regression coefficient based",
         "status": "running"
@@ -101,9 +135,12 @@ def root():
 @app.get("/health")
 def health():
 
+    log.debug("health check completed service=traditional")
+
     return {
         "status": "healthy",
-        "model_loaded": True
+        "model_loaded": True,
+        "model_version": MODEL_VERSION
     }
 @app.get("/cors-check")
 def cors_check():
@@ -258,6 +295,7 @@ def clean_feature_name(feature):
 # ============================================================
 
 @app.post("/predict")
+@log_prediction_endpoint("traditional", "traditional")
 def predict(
     application: TraditionalCreditApplication
 ):
@@ -466,6 +504,8 @@ def predict(
 
         "model_type":
             "TRADITIONAL_DATA",
+
+        "model_version": MODEL_VERSION,
 
         "prediction":
             prediction,

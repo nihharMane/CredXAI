@@ -1,8 +1,17 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import joblib
+import hashlib
 import pandas as pd
+import logging
+import time
+from pathlib import Path
+try:
+    from .logging_config import configure_logging, install_request_logging, log_prediction_endpoint
+except ImportError:
+    from logging_config import configure_logging, install_request_logging, log_prediction_endpoint
 
 
 # ============================================================
@@ -10,24 +19,31 @@ import pandas as pd
 # Model-based XAI using Logistic Regression coefficients
 # ============================================================
 
-MODEL_PATH = (
-    "models/simple_alternative_logistic_regression.pkl"
-)
+MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "simple_alternative_logistic_regression.pkl"
 
-print("=" * 70)
-print("CREDXAI - SIMPLE ALTERNATIVE CREDIT RISK API")
-print("=" * 70)
-
-print("\nLoading alternative Logistic Regression model...")
-
-model = joblib.load(MODEL_PATH)
-
-print("Model loaded successfully.")
+configure_logging()
+log = logging.getLogger("credxai.alternative")
+model_load_started = time.perf_counter()
+try:
+    model = joblib.load(MODEL_PATH)
+    MODEL_VERSION = f"sha256:{hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()[:12]}"
+    log.info("model loaded model=alternative version=%s duration_ms=%.1f", MODEL_VERSION,
+             (time.perf_counter() - model_load_started) * 1000)
+except Exception:
+    log.exception("model loading failed model=alternative path_exists=%s", MODEL_PATH.is_file())
+    raise
 
 
 # ============================================================
 # FASTAPI
 # ============================================================
+
+@asynccontextmanager
+async def lifespan(_app):
+    log.info("ML service started service=alternative")
+    yield
+    log.info("ML service stopped service=alternative")
+
 
 app = FastAPI(
     title="CredXAI Alternative Credit Risk API",
@@ -36,15 +52,18 @@ app = FastAPI(
         "thin-file applicants using 8 simple inputs."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
+install_request_logging(app, "alternative")
 
 # Allow the deployed React frontend to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://credxai-frontend.onrender.com"],
+    allow_origins=["https://credxai-frontend.onrender.com", "http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Correlation-ID"],
 )
 
 
@@ -55,40 +74,13 @@ app.add_middleware(
 class AlternativeCreditApplication(BaseModel):
 
     age_range: str
-
-    account_tenure_months: float = Field(
-        ...,
-        ge=0
-    )
-
-    monthly_income: float = Field(
-        ...,
-        gt=0
-    )
-
-    monthly_spending: float = Field(
-        ...,
-        ge=0
-    )
-
+    account_tenure_months: float = Field(..., ge=0)
+    monthly_income: float = Field(..., gt=0)
+    monthly_spending: float = Field(..., ge=0)
     average_balance: float
-
-    overdraft_frequency_percent: float = Field(
-        ...,
-        ge=0
-    )
-
-    bill_payment_consistency_percent: float = Field(
-        ...,
-        ge=0,
-        le=100
-    )
-
-    cashflow_stability_percent: float = Field(
-        ...,
-        ge=0,
-        le=100
-    )
+    overdraft_frequency_percent: float = Field(..., ge=0, le=100)
+    bill_payment_consistency_percent: float = Field(..., ge=0, le=100)
+    cashflow_stability_percent: float = Field(..., ge=0, le=100)
 
 
 # ============================================================
@@ -104,6 +96,8 @@ def root():
 
         "model":
             "Simplified Alternative Logistic Regression",
+
+        "model_version": MODEL_VERSION,
 
         "input_features":
             8,
@@ -123,9 +117,12 @@ def root():
 @app.get("/health")
 def health():
 
+    log.debug("health check completed service=alternative")
+
     return {
         "status": "healthy",
-        "model_loaded": True
+        "model_loaded": True,
+        "model_version": MODEL_VERSION
     }
 
 
@@ -150,108 +147,26 @@ def get_risk_band(probability):
 # ============================================================
 
 def calculate_feature_contributions(data):
-
-    # --------------------------------------------------------
-    # Your alternative model is a Pipeline.
-    # It may contain preprocessing + Logistic Regression.
-    # --------------------------------------------------------
-
     if hasattr(model, "named_steps"):
-
         steps = model.named_steps
-
-        classifier = None
-        preprocessor = None
-
-        for name, step in steps.items():
-
-            if hasattr(step, "coef_"):
-                classifier = step
-
-            if hasattr(
-                step,
-                "get_feature_names_out"
-            ):
-                preprocessor = step
-
-        # ----------------------------------------------------
-        # If preprocessing exists
-        # ----------------------------------------------------
-
+        classifier = next((step for step in steps.values() if hasattr(step, "coef_")), None)
+        preprocessor = next((step for step in steps.values() if hasattr(step, "get_feature_names_out")), None)
         if preprocessor is not None:
-
-            transformed = (
-                preprocessor.transform(data)
-            )
-
-            if hasattr(
-                transformed,
-                "toarray"
-            ):
-                transformed = (
-                    transformed.toarray()
-                )
-
+            transformed = preprocessor.transform(data)
+            if hasattr(transformed, "toarray"):
+                transformed = transformed.toarray()
             transformed = transformed[0]
-
-            feature_names = (
-                preprocessor
-                .get_feature_names_out()
-            )
-
+            feature_names = preprocessor.get_feature_names_out()
         else:
-
             transformed = data.values[0]
-
-            feature_names = (
-                data.columns.tolist()
-            )
-
+            feature_names = data.columns.tolist()
         coefficients = classifier.coef_[0]
-
     else:
-
-        # ----------------------------------------------------
-        # Plain Logistic Regression
-        # ----------------------------------------------------
-
         transformed = data.values[0]
-
-        feature_names = (
-            data.columns.tolist()
-        )
-
+        feature_names = data.columns.tolist()
         coefficients = model.coef_[0]
-
-    # --------------------------------------------------------
-    # Contribution
-    #
-    # contribution =
-    # transformed feature × coefficient
-    # --------------------------------------------------------
-
-    contributions = (
-        transformed * coefficients
-    )
-
-    results = []
-
-    for feature, contribution in zip(
-        feature_names,
-        contributions
-    ):
-
-        results.append(
-            {
-                "feature": feature,
-                "contribution": float(
-                    contribution
-                )
-            }
-        )
-
-    return results
-
+    return [{"feature": feature, "contribution": float(contribution)}
+            for feature, contribution in zip(feature_names, transformed * coefficients)]
 
 # ============================================================
 # CLEAN FEATURE NAMES
@@ -270,46 +185,20 @@ def clean_feature_name(feature):
     )
 
     replacements = {
-
-        "age_range":
-            "Age range",
-
-        "account_tenure_days":
-            "Account tenure",
-
-        "avg_monthly_income":
-            "Monthly income",
-
-        "avg_monthly_spend":
-            "Monthly spending",
-
-        "avg_balance":
-            "Average balance",
-
-        "overdraft_frequency":
-            "Overdraft frequency",
-
-        "bill_payment_consistency":
-            "Bill payment consistency",
-
-        "cashflow_stability_score":
-            "Cashflow stability",
+        "age_range": "Age range",
+        "account_tenure_days": "Account tenure",
+        "avg_monthly_income": "Monthly income",
+        "avg_monthly_spend": "Monthly spending",
+        "avg_balance": "Average balance",
+        "overdraft_frequency": "Overdraft frequency",
+        "bill_payment_consistency": "Bill payment consistency",
+        "cashflow_stability_score": "Cashflow stability",
     }
-
     for old, new in replacements.items():
-
         if feature == old:
-
             return new
-
         if feature.startswith(old):
-
-            return feature.replace(
-                old,
-                new,
-                1
-            )
-
+            return feature.replace(old, new, 1)
     return feature
 
 
@@ -317,58 +206,33 @@ def clean_feature_name(feature):
 # PREDICTION
 # ============================================================
 
+def _build_model_features(application: AlternativeCreditApplication) -> pd.DataFrame:
+    """Convert API percentages to the 0–1 ratios used by the trained model."""
+    return pd.DataFrame([{
+        "age_range": application.age_range,
+        "account_tenure_days": application.account_tenure_months * 30,
+        "avg_monthly_income": application.monthly_income,
+        "avg_monthly_spend": application.monthly_spending,
+        "avg_balance": application.average_balance,
+        "overdraft_frequency": application.overdraft_frequency_percent / 100,
+        "bill_payment_consistency": application.bill_payment_consistency_percent / 100,
+        "cashflow_stability_score": application.cashflow_stability_percent / 100,
+    }])
+
+
 @app.post("/predict")
+@log_prediction_endpoint("alternative", "alternative")
 def predict(
     application: AlternativeCreditApplication
 ):
-
-    # --------------------------------------------------------
-    # Convert user-friendly inputs into model features
-    # --------------------------------------------------------
-
-    data = pd.DataFrame(
-        [
-            {
-                "age_range":
-                    application.age_range,
-
-                "account_tenure_days":
-                    application.account_tenure_months
-                    * 30,
-
-                "avg_monthly_income":
-                    application.monthly_income,
-
-                "avg_monthly_spend":
-                    application.monthly_spending,
-
-                "avg_balance":
-                    application.average_balance,
-
-                "overdraft_frequency":
-                    application
-                    .overdraft_frequency_percent,
-
-                "bill_payment_consistency":
-                    application
-                    .bill_payment_consistency_percent
-                    / 100,
-
-                "cashflow_stability_score":
-                    application
-                    .cashflow_stability_percent
-                    / 100,
-            }
-        ]
-    )
+    data = _build_model_features(application)
 
     # --------------------------------------------------------
     # PREDICTION
     # --------------------------------------------------------
 
-    probability = float(
-        model.predict_proba(data)[0][1]
-    )
+    default_class_index = list(model.classes_).index(1)
+    probability = float(model.predict_proba(data)[0][default_class_index])
 
     prediction = int(
         probability >= 0.50
@@ -524,6 +388,8 @@ def predict(
         "model_type":
             "ALTERNATIVE_DATA",
 
+        "model_version": MODEL_VERSION,
+
         "prediction":
             prediction,
 
@@ -550,8 +416,6 @@ def predict(
 
         "disclaimer":
             (
-                "This is a machine-learning-based risk "
-                "estimate and should support, not replace, "
-                "human credit decisions."
+                "This is a machine-learning-based risk estimate and should support, not replace, human credit decisions."
             )
     }

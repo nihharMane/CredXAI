@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
+import { logger } from '../utils/logger';
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (e) {
-      console.error('Error reading auth state from storage', e);
+      logger.warn('auth.storage.read_failed', { errorType: e?.name || 'Error' });
     }
     return null;
   });
@@ -58,6 +59,7 @@ export const AuthProvider = ({ children }) => {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
       setUser(authUser);
+      logger.info('auth.login.succeeded');
       return { success: true, user: authUser };
     } catch (err) {
       const errorMessage =
@@ -81,6 +83,7 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
     try {
       const data = await authService.register({ fullName, email, password });
+      logger.info('auth.registration.succeeded');
       return { success: true, data };
     } catch (err) {
       const errorMessage =
@@ -102,6 +105,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     setAuthError(null);
+    logger.info('auth.logout.completed');
   };
 
   const value = {

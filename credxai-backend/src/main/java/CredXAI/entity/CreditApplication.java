@@ -3,6 +3,7 @@ package CredXAI.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "credit_applications")
@@ -25,6 +26,24 @@ public class CreditApplication {
     private Double defaultProbability;
 
     private String riskBand;
+
+    @Column(precision = 15, scale = 2)
+    private BigDecimal loanAmount;
+
+    @Column(precision = 15, scale = 2)
+    private BigDecimal existingMonthlyDebt;
+
+    @Column(length = 32)
+    private String repaymentHistory;
+
+    @Column(length = 120)
+    private String purpose;
+
+    @Column(length = 80)
+    private String modelVersion;
+
+    @Column(columnDefinition = "TEXT")
+    private String predictionDetails;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -74,6 +93,30 @@ public class CreditApplication {
     public void setRiskBand(String riskBand) {
         this.riskBand = riskBand;
     }
+
+    public BigDecimal getLoanAmount() { return loanAmount; }
+
+    public void setLoanAmount(BigDecimal loanAmount) { this.loanAmount = loanAmount; }
+
+    public BigDecimal getExistingMonthlyDebt() { return existingMonthlyDebt; }
+
+    public void setExistingMonthlyDebt(BigDecimal existingMonthlyDebt) { this.existingMonthlyDebt = existingMonthlyDebt; }
+
+    public String getRepaymentHistory() { return repaymentHistory; }
+
+    public void setRepaymentHistory(String repaymentHistory) { this.repaymentHistory = repaymentHistory; }
+
+    public String getPurpose() { return purpose; }
+
+    public void setPurpose(String purpose) { this.purpose = purpose; }
+
+    public String getModelVersion() { return modelVersion; }
+
+    public void setModelVersion(String modelVersion) { this.modelVersion = modelVersion; }
+
+    public String getPredictionDetails() { return predictionDetails; }
+
+    public void setPredictionDetails(String predictionDetails) { this.predictionDetails = predictionDetails; }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
