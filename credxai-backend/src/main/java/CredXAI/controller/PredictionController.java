@@ -38,6 +38,7 @@ public class PredictionController {
         log.debug("Alternative assessment request accepted");
         JsonNode prediction =
                 mlPredictionService.predictAlternative(request);
+        if (prediction instanceof ObjectNode objectPrediction) objectPrediction.put("tenure_months", request.tenure_months);
 
         var application = applicationService.savePrediction(
                 authentication.getName(), prediction, request.loan_amount, request.existing_monthly_debt,
@@ -46,7 +47,7 @@ public class PredictionController {
                 (System.nanoTime() - startedAt) / 1_000_000);
         return withApplicationMetadata(prediction, application.getId(), application.getLoanAmount(), application.getExistingMonthlyDebt(),
                 application.getPurpose(), application.getRepaymentHistory(), application.getStatus(),
-                application.getCreatedAt().toString(), application.getModelVersion());
+                application.getCreatedAt().toString(), application.getModelVersion(), application.getTenureMonths());
     }
 
     @PostMapping("/traditional")
@@ -58,6 +59,7 @@ public class PredictionController {
         log.debug("Traditional assessment request accepted");
         JsonNode prediction =
                 mlPredictionService.predictTraditional(request);
+        if (prediction instanceof ObjectNode objectPrediction) objectPrediction.put("tenure_months", request.tenure_months);
 
         var application = applicationService.savePrediction(
                 authentication.getName(), prediction, request.credit_amount, request.existing_monthly_debt,
@@ -66,7 +68,7 @@ public class PredictionController {
                 (System.nanoTime() - startedAt) / 1_000_000);
         return withApplicationMetadata(prediction, application.getId(), application.getLoanAmount(), application.getExistingMonthlyDebt(),
                 application.getPurpose(), application.getRepaymentHistory(), application.getStatus(),
-                application.getCreatedAt().toString(), application.getModelVersion());
+                application.getCreatedAt().toString(), application.getModelVersion(), application.getTenureMonths());
     }
 
     @GetMapping("/history")
@@ -90,10 +92,11 @@ public class PredictionController {
     private JsonNode withApplicationMetadata(JsonNode prediction, Long applicationId,
                                              BigDecimal loanAmount, BigDecimal existingMonthlyDebt,
                                              String purpose, String repaymentHistory, String applicationStatus, String timestamp,
-                                             String modelVersion) {
+                                             String modelVersion, Integer tenureMonths) {
         ObjectNode response = ((ObjectNode) prediction).deepCopy();
         response.put("application_id", applicationId);
         response.put("requested_loan_amount", loanAmount);
+        if (tenureMonths != null) response.put("tenure_months", tenureMonths);
         response.put("existing_monthly_debt", existingMonthlyDebt);
         response.put("repayment_history", repaymentHistory);
         response.put("application_status", applicationStatus);

@@ -83,6 +83,12 @@ public class GlobalExceptionHandler {
                 return error(HttpStatus.BAD_REQUEST,
                         "Bill payment consistency must be a number from 0% to 100% with no more than two decimal places.");
             }
+            if ("tenure_months".equals(invalidField)) {
+                log.warn("Malformed request received method={} path={} field={} reason=invalid_number",
+                        request.getMethod(), request.getRequestURI(), invalidField);
+                return error(HttpStatus.BAD_REQUEST,
+                        "Requested repayment tenure must be a whole number from 1 to 600 months.");
+            }
             log.warn("Malformed request received method={} path={} reason=invalid_or_missing_json_body",
                     request.getMethod(), request.getRequestURI());
             return error(HttpStatus.BAD_REQUEST, "The request body is missing or malformed.");
@@ -101,7 +107,8 @@ public class GlobalExceptionHandler {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof JacksonException jacksonException) {
                 for (JacksonException.Reference reference : jacksonException.getPath()) {
-                    if ("bill_payment_consistency_percent".equals(reference.getPropertyName())) {
+                    if ("bill_payment_consistency_percent".equals(reference.getPropertyName())
+                            || "tenure_months".equals(reference.getPropertyName())) {
                         return reference.getPropertyName();
                     }
                 }

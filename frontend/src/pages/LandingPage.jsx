@@ -41,7 +41,6 @@ const LandingPage = () => (
       </div>
     </section>
 
-
   </main>
 );
 

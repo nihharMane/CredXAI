@@ -4,7 +4,7 @@ CredXAI is a local decision-support prototype for exploring traditional Home Cre
 
 ## Applicant Workflow — Current Implementation Scope
 
-The applicant-facing application stays focused on the real application journey: a professional landing page, authenticated applicant dashboard, model-specific loan application fields, server-backed predictions, saved results and explanations, downloadable PDF reports, and account-scoped application history. The dashboard uses a three-column layout on wide screens for the application form, returned risk overview, and saved assessment/history summary; it stacks these sections on smaller screens.
+The applicant-facing application stays focused on the real application journey: a professional landing page, authenticated applicant dashboard, model-specific loan application fields, server-backed predictions, saved results and explanations, and downloadable PDF reports. The profile shows the five latest saved assessments with their recorded risk-factor contributions. There is no separate applicant history page or applicant-facing application status display.
 
 The applicant UI does not include model evaluation, model comparison, or model performance metric pages. Training and evaluation scripts, saved metrics, and research notes remain available in the repository for internal development and oral assessment preparation. Predictions and explanations must come from the active ML APIs, while PDF reports are built from the authenticated saved application detail response; the UI does not substitute mock scores or invented rationales.
 
@@ -152,6 +152,18 @@ Before starting the application, ensure the following are installed:
   npm run build
   ```
 
+## Admin access and application review
+
+Admin routes are protected by the backend and require a JWT issued to an account whose stored role is `ADMIN`. Public registration assigns `USER`, and migration `V10__default_new_users_to_user_role.sql` also sets `USER` as the database default. `USER` is the normal applicant role. To provision the first administrator, an authorized database operator should first register the intended account, then run this targeted statement against the configured CredXAI database:
+
+```sql
+UPDATE users SET role = 'ADMIN' WHERE email = 'admin@example.com';
+```
+
+Confirm exactly one row was affected. The account must sign out and sign in again so its JWT contains the new role. To revoke access, set that account's role back to `USER`. Do not expose database credentials or create an unauthenticated role-assignment API.
+
+Flyway migration `V9__application_review_history.sql` adds review history and a distinct review status; it does not change the saved model status, prediction, risk band, or existing application rows. Review decisions record a human workflow event and reason. They are not generated from the model risk category.
+
 ---
 
 ## Key Features
@@ -160,7 +172,7 @@ Before starting the application, ensure the following are installed:
 - **Dual Underwriting Modes:**
   - *Traditional Model:* 12 applicant inputs mapped to Home Credit features; labels originate from Home Credit's `TARGET` field.
   - *Alternative Model:* Eight profile-derived inputs. The active training script reads `credit_profiles.parquet`; it does not consume `transactions_IN.parquet`.
-- **Account isolation:** The authenticated JWT identity scopes assessment history. The included roles are not used for role-based authorization.
+- **Account isolation:** The authenticated JWT identity scopes saved assessments. Admin APIs require the `ADMIN` role; public registration only creates `USER` accounts.
 
 ---
 
@@ -294,7 +306,7 @@ The default backend suite runs request-boundary validation tests without MySQL. 
 
 - Passwords are BCrypt-hashed. The backend reads database and JWT secrets from environment variables; no secrets belong in source control. JWTs are stored in browser local storage, so this prototype should only run on trusted local environments and still needs a stronger browser-token storage strategy before production use.
 - Prediction, history, and application-detail routes require JWT authentication. Detail retrieval queries by both application ID and the authenticated user's ID. PDF reports are downloaded from the authenticated saved application detail and stored model response; older records without saved explanation data cannot produce complete reports.
-- Current roles are embedded in JWTs but not used for role-based authorization. Only predictions routes are protected by the current security rule; do not add sensitive routes without explicit authorization rules.
+- Roles are embedded in JWTs and checked by Spring Security. Admin endpoints require `ADMIN`; all other non-public routes require authentication.
 - The health endpoint now checks the backend's database connection. ML health reports readiness of the loaded artifact, not model quality or calibration.
 - The application stores score, risk band, status, model fingerprint, requested amount, purpose, existing monthly debt, self-reported repayment summary, timestamp, and the returned explanation details. It does not retain all applicant inputs, so a historical score cannot currently be fully reproduced from the database.
 - The frontend generates a downloadable PDF from saved application and prediction data. Independent fairness evaluation, validated threshold selection, real bureau integration, and a human lending workflow are not implemented. The prototype does not approve or reject loans.

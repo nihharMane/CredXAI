@@ -35,6 +35,7 @@ class PredictionFlowTests {
 
         JsonNode response = controller.predictTraditional(AUTH, request);
 
+        assertEquals("traditional", ml.selectedPipeline);
         assertEquals("applicant@example.com", applications.userEmail);
         assertEquals(request.credit_amount, applications.loanAmount);
         assertEquals("TRADITIONAL_DATA", response.path("model_type").asString());

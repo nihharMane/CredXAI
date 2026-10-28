@@ -37,9 +37,7 @@ outputs/
 .DS_Store
 Thumbs.db
 credxai-backend/run-credxai.ps1
-<<<<<<< HEAD
 credxai_synthetic_alternative_profiles_5000.csv
 41_train_new_alternative_model.py
 models
-=======
->>>>>>> 3769cfa5a337e517b37260a8b7686336d027d57f
+brag-output-2026-10-27-222133

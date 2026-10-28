@@ -42,6 +42,7 @@ class PredictionRequestValidationTests {
         request.bill_payment_consistency_percent = new BigDecimal("95");
         request.cashflow_stability_percent = new BigDecimal("85");
         request.loan_amount = new BigDecimal("250000.00");
+        request.tenure_months = 24;
         request.existing_monthly_debt = BigDecimal.ZERO;
         request.repayment_history = "UNKNOWN";
         request.purpose = "PERSONAL";
@@ -58,6 +59,57 @@ class PredictionRequestValidationTests {
         assertTrue(invalidFields.contains("bill_payment_consistency_percent"));
         assertTrue(invalidFields.contains("loan_amount"));
         assertTrue(invalidFields.contains("repayment_history"));
+    }
+
+    @Test
+    void requestedTenureIsOptionalForLegacyClientsButValidatedWhenProvided() {
+        AlternativePredictionRequest alternative = new AlternativePredictionRequest();
+        TraditionalPredictionRequest traditional = new TraditionalPredictionRequest();
+
+        assertTrue(fieldViolations(alternative, "tenure_months").isEmpty());
+        assertTrue(fieldViolations(traditional, "tenure_months").isEmpty());
+        alternative.tenure_months = null;
+        traditional.tenure_months = null;
+        assertTrue(fieldViolations(alternative, "tenure_months").isEmpty());
+        assertTrue(fieldViolations(traditional, "tenure_months").isEmpty());
+
+        for (int invalid : new int[]{0, 601}) {
+            alternative.tenure_months = invalid;
+            traditional.tenure_months = invalid;
+            assertFalse(fieldViolations(alternative, "tenure_months").isEmpty());
+            assertFalse(fieldViolations(traditional, "tenure_months").isEmpty());
+        }
+
+        alternative.tenure_months = 1;
+        traditional.tenure_months = 600;
+        assertTrue(fieldViolations(alternative, "tenure_months").isEmpty());
+        assertTrue(fieldViolations(traditional, "tenure_months").isEmpty());
+    }
+
+    @Test
+    void nonNumericRequestedTenureReturnsFieldSpecificSafeMessage() throws Exception {
+        JsonMapper mapper = JsonMapper.builder().build();
+        HttpMessageNotReadableException malformed;
+        try {
+            mapper.readValue("{\"tenure_months\":\"not-a-number\"}", TraditionalPredictionRequest.class);
+            throw new AssertionError("Expected malformed numeric input to be rejected");
+        } catch (JacksonException ex) {
+            malformed = new HttpMessageNotReadableException("Malformed request body", ex,
+                    new MockHttpInputMessage(new byte[0]));
+        }
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/predictions/traditional");
+        var response = new GlobalExceptionHandler().handleBadRequest(malformed, request);
+        assertTrue(response.getStatusCode().isSameCodeAs(HttpStatus.BAD_REQUEST));
+        assertTrue(response.getBody().get("message").toString().contains("Requested repayment tenure"));
+        assertFalse(response.getBody().toString().contains("not-a-number"));
+    }
+
+    @Test
+    void emptyRequestedTenureIsTreatedAsOmittedOptionalContext() throws Exception {
+        TraditionalPredictionRequest request = JsonMapper.builder().build()
+                .readValue("{\"tenure_months\":\"\"}", TraditionalPredictionRequest.class);
+        assertTrue(fieldViolations(request, "tenure_months").isEmpty());
     }
 
     @Test
@@ -143,6 +195,13 @@ class PredictionRequestValidationTests {
                 .collect(Collectors.toSet());
     }
 
+    private Set<jakarta.validation.ConstraintViolation<TraditionalPredictionRequest>> fieldViolations(
+            TraditionalPredictionRequest request, String field) {
+        return validator.validate(request).stream()
+                .filter(violation -> violation.getPropertyPath().toString().equals(field))
+                .collect(Collectors.toSet());
+    }
+
     private void assertFieldMessage(AlternativePredictionRequest request, String field, String expectedMessage) {
         assertTrue(fieldViolations(request, field).stream()
                 .anyMatch(violation -> violation.getMessage().equals(expectedMessage)));
@@ -157,6 +216,7 @@ class PredictionRequestValidationTests {
         request.income_type = "Working";
         request.monthly_income = 45_000;
         request.credit_amount = new BigDecimal("250000.00");
+        request.tenure_months = 24;
         request.existing_monthly_debt = BigDecimal.ZERO;
         request.repayment_history = "UNKNOWN";
         request.purpose = "PERSONAL";

@@ -8,9 +8,11 @@ public class CreditApplicationResponse {
     public Long userId;
     public String modelType;
     public String status;
+    public String reviewStatus;
     public Double defaultProbability;
     public String riskBand;
     public BigDecimal loanAmount;
+    public Integer tenureMonths;
     public BigDecimal existingMonthlyDebt;
     public String repaymentHistory;
     public String purpose;
@@ -21,11 +23,19 @@ public class CreditApplicationResponse {
     public CreditApplicationResponse() {
     }
 
+    public CreditApplicationResponse(Long id, Long userId, String modelType, String status,
+                                   Double defaultProbability, String riskBand, BigDecimal loanAmount, String purpose,
+                                   BigDecimal existingMonthlyDebt, String modelVersion, String predictionDetails,
+                                   String repaymentHistory, LocalDateTime createdAt) {
+        this(id, userId, modelType, status, defaultProbability, riskBand, loanAmount, purpose,
+                existingMonthlyDebt, modelVersion, predictionDetails, repaymentHistory, createdAt, null);
+    }
+
     public CreditApplicationResponse(Long id, Long userId, String modelType,
                                    String status, Double defaultProbability,
                                    String riskBand, BigDecimal loanAmount, String purpose,
                                    BigDecimal existingMonthlyDebt, String modelVersion,
-                                   String predictionDetails, String repaymentHistory, LocalDateTime createdAt) {
+                                   String predictionDetails, String repaymentHistory, LocalDateTime createdAt, Integer tenureMonths) {
         this.id = id;
         this.userId = userId;
         this.modelType = modelType;
@@ -33,6 +43,7 @@ public class CreditApplicationResponse {
         this.defaultProbability = defaultProbability;
         this.riskBand = riskBand;
         this.loanAmount = loanAmount;
+        this.tenureMonths = tenureMonths;
         this.existingMonthlyDebt = existingMonthlyDebt;
         this.repaymentHistory = repaymentHistory;
         this.purpose = purpose;

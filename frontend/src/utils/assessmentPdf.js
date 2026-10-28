@@ -81,10 +81,10 @@ const createReportContent = (application, prediction) => {
   addText(`Risk category: ${prediction.risk_band || 'Not returned'}`, { bold: true });
   addText(`Model used: ${prediction.model_type || application.modelType || 'Not recorded'}`);
   addText(`Model version: ${application.modelVersion || prediction.model_version || 'Unversioned'}`);
-  addText(`Application status: ${application.status || 'Not recorded'}`);
 
   addSection('Application details');
   addText(`Requested loan amount: ${formatCurrency(application.loanAmount)}`);
+  addText(`Requested repayment tenure: ${application.tenureMonths != null ? `${application.tenureMonths} months` : 'Not recorded'}`);
   addText(`Loan purpose: ${application.purpose || 'Not recorded'}`);
   addText(`Existing monthly debt: ${formatCurrency(application.existingMonthlyDebt)}`);
   addText(`Self-reported repayment history: ${(application.repaymentHistory || 'UNKNOWN').replaceAll('_', ' ')}`);

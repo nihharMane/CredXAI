@@ -2,45 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-}
+:root { color-scheme: light; font-synthesis: none; }
+body { margin: 0; min-height: 100vh; background: #F5F8FC; color: #172B4D; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: #0A0F1E;
-  color: #F1F5F9;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Custom Scrollbar for modern fintech look */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #060B16;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1E2F56;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #2A4073;
-}
-@media print {
-  @page { margin: 14mm; }
-  body, #root { background: #fff !important; color: #111 !important; height: auto !important; overflow: visible !important; }
-  aside, nav, .no-print, button, a[href="/history"] { display: none !important; }
-  main { overflow: visible !important; padding: 0 !important; background: #fff !important; }
-  .report-card, .report-card [class*="bg-navy-"], .report-card [class*="bg-brand-"] { background: #fff !important; box-shadow: none !important; }
-  .report-card, .report-card * { color: #111 !important; border-color: #bbb !important; }
-  .report-card { border: 0 !important; padding: 0 !important; }
-  .report-card .animate-fadeIn { animation: none !important; }
-}
+/* Shared light fintech palette for legacy utility classes used across existing screens. */
+[class~="text-white"] { color: #172B4D; }
+[class~="text-slate-200"], [class~="text-slate-300"] { color: #334155; }
+[class~="text-slate-400"], [class~="text-slate-500"] { color: #64748B; }
+[class~="text-slate-600"] { color: #475569; }
+[class~="bg-navy-950/80"], [class~="bg-navy-950/60"], [class~="bg-navy-900/80"], [class~="bg-navy-900/70"], [class~="bg-navy-850"], [class~="bg-navy-900"], [class~="bg-slate-900/70"] { background-color: #FFFFFF; }
+[class~="border-navy-800"], [class~="border-navy-800/80"], [class~="border-navy-700"] { border-color: #E2E8F0; }
+[class~="bg-slate-700"] { background-color: #E2E8F0; }
+[class~="bg-violet-500"], [class~="bg-violet-700"] { background-color: #2563EB; color: #FFFFFF; }
+[class~="text-violet-200"], [class~="text-violet-300"], [class~="text-violet-600"], [class~="text-violet-700"] { color: #16324F; }
+.bg-gradient-to-r, .bg-gradient-to-tr { color: #FFFFFF; }
+.bg-gradient-to-r [class~="text-white"], .bg-gradient-to-tr [class~="text-white"] { color: #FFFFFF; }
+button[class*="bg-brand-blue"], a[class*="bg-brand-blue"], button[class*="bg-violet-"], a[class*="bg-violet-"] { color: #FFFFFF; }
+button[class*="bg-[#24364B]"], a[class*="bg-[#24364B]"], div[class*="bg-[#24364B]"] { color: #FFFFFF; }
+[class*="bg-[#24364B]"] [class~="text-white"] { color: #FFFFFF; }
+input, select, textarea { color: #172B4D; }
+input::placeholder, textarea::placeholder { color: #94A3B8; }
+.assessment-page > header h1 { color: #16324F; }
+.assessment-page > header p { color: #64748B; }
+.assessment-page [class~="text-white"] { color: #172B4D; }
+.assessment-page button[class*="bg-violet-700"] { background: #2563EB; color: #FFFFFF; }
+.assessment-page button[class*="bg-violet-700"]:hover { background: #1D4ED8; }
+.assessment-report [class*="bg-navy-"] { background: #FFFFFF; }
+.assessment-report [class*="border-navy-"] { border-color: #E2E8F0; }
+.assessment-report [class~="text-white"] { color: #172B4D; }
+.assessment-report [class*="shadow-"] { box-shadow: 0 1px 3px rgb(22 50 79 / 8%); }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: #F5F8FC; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 5px; }
+@media print { @page { margin: 14mm; } body, #root { background: #fff !important; color: #111 !important; height: auto !important; overflow: visible !important; } aside, nav, .no-print, button { display: none !important; } main { overflow: visible !important; padding: 0 !important; } .report-card, .report-card * { color: #111 !important; background: #fff !important; border-color: #bbb !important; box-shadow: none !important; } .report-card { border: 0 !important; padding: 0 !important; } }

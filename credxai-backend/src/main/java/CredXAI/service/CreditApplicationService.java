@@ -41,6 +41,8 @@ public class CreditApplicationService {
         application.setDefaultProbability(prediction.path("default_probability").asDouble());
         application.setRiskBand(prediction.path("risk_band").asString());
         application.setLoanAmount(loanAmount);
+        application.setTenureMonths(prediction.path("tenure_months").isNumber()
+                ? prediction.path("tenure_months").asInt() : null);
         application.setExistingMonthlyDebt(existingMonthlyDebt);
         application.setRepaymentHistory(repaymentHistory);
         application.setPurpose(purpose.trim());
@@ -61,10 +63,14 @@ public class CreditApplicationService {
 
         List<CreditApplicationResponse> applications = applicationRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
                 .stream()
-                .map(app -> new CreditApplicationResponse(
-                        app.getId(), app.getUser().getId(), app.getModelType(), app.getStatus(),
-                        app.getDefaultProbability(), app.getRiskBand(), app.getLoanAmount(), app.getPurpose(),
-                        app.getExistingMonthlyDebt(), app.getModelVersion(), null, app.getRepaymentHistory(), app.getCreatedAt()))
+                .map(app -> {
+                    var response = new CreditApplicationResponse(
+                            app.getId(), app.getUser().getId(), app.getModelType(), app.getStatus(),
+                            app.getDefaultProbability(), app.getRiskBand(), app.getLoanAmount(), app.getPurpose(),
+                            app.getExistingMonthlyDebt(), app.getModelVersion(), null, app.getRepaymentHistory(), app.getCreatedAt(), app.getTenureMonths());
+                    response.reviewStatus = app.getReviewStatus();
+                    return response;
+                })
                 .toList();
         log.debug("Application history loaded count={}", applications.size());
         return applications;
@@ -80,10 +86,12 @@ public class CreditApplicationService {
 
         log.debug("Application detail authorized applicationId={}", application.getId());
 
-        return new CreditApplicationResponse(application.getId(), application.getUser().getId(),
+        var response = new CreditApplicationResponse(application.getId(), application.getUser().getId(),
                 application.getModelType(), application.getStatus(), application.getDefaultProbability(),
                 application.getRiskBand(), application.getLoanAmount(), application.getPurpose(),
                 application.getExistingMonthlyDebt(), application.getModelVersion(),
-                application.getPredictionDetails(), application.getRepaymentHistory(), application.getCreatedAt());
+                application.getPredictionDetails(), application.getRepaymentHistory(), application.getCreatedAt(), application.getTenureMonths());
+        response.reviewStatus = application.getReviewStatus();
+        return response;
     }
 }

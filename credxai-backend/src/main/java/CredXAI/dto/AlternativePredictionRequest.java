@@ -38,6 +38,9 @@ public class AlternativePredictionRequest {
     // Application context retained for persistence; these values are not model inputs.
     @NotNull @DecimalMin("0.01") @DecimalMax("9999999999999.99") @Digits(integer = 13, fraction = 2)
     public BigDecimal loan_amount;
+    @jakarta.validation.constraints.Min(value = 1, message = "Requested repayment tenure must be between 1 and 600 months.")
+    @jakarta.validation.constraints.Max(value = 600, message = "Requested repayment tenure must be between 1 and 600 months.")
+    public Integer tenure_months;
     @NotNull @DecimalMin("0") @DecimalMax("9999999999999.99") @Digits(integer = 13, fraction = 2)
     public BigDecimal existing_monthly_debt;
     @NotBlank @Pattern(regexp = "UNKNOWN|CURRENT|LATE_1_30|LATE_31_90|LATE_OVER_90")

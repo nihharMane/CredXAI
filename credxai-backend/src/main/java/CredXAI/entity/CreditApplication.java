@@ -23,12 +23,17 @@ public class CreditApplication {
     @Column(nullable = false)
     private String status = "PENDING";
 
+    @Column(name = "review_status", nullable = false, length = 40)
+    private String reviewStatus = "SUBMITTED";
+
     private Double defaultProbability;
 
     private String riskBand;
 
     @Column(precision = 15, scale = 2)
     private BigDecimal loanAmount;
+
+    private Integer tenureMonths;
 
     @Column(precision = 15, scale = 2)
     private BigDecimal existingMonthlyDebt;
@@ -78,6 +83,9 @@ public class CreditApplication {
         this.status = status;
     }
 
+    public String getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+
     public Double getDefaultProbability() {
         return defaultProbability;
     }
@@ -97,6 +105,10 @@ public class CreditApplication {
     public BigDecimal getLoanAmount() { return loanAmount; }
 
     public void setLoanAmount(BigDecimal loanAmount) { this.loanAmount = loanAmount; }
+
+    public Integer getTenureMonths() { return tenureMonths; }
+
+    public void setTenureMonths(Integer tenureMonths) { this.tenureMonths = tenureMonths; }
 
     public BigDecimal getExistingMonthlyDebt() { return existingMonthlyDebt; }
 

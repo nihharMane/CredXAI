@@ -37,6 +37,11 @@ export const predictionService = {
     const response = await apiClient.get(`/api/predictions/history/${applicationId}`);
     return response.data;
   },
+
+  async getReviewUpdates(applicationId) {
+    const response = await apiClient.get(`/api/predictions/history/${applicationId}/reviews`);
+    return response.data;
+  },
 };
 
 export default predictionService;

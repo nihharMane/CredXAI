@@ -35,6 +35,9 @@ public class TraditionalPredictionRequest {
     @DecimalMax("9999999999999.99")
     @Digits(integer = 13, fraction = 2)
     public BigDecimal credit_amount;
+    @Min(value = 1, message = "Requested repayment tenure must be between 1 and 600 months.")
+    @Max(value = 600, message = "Requested repayment tenure must be between 1 and 600 months.")
+    public Integer tenure_months;
     @NotNull
     @DecimalMin("0")
     @DecimalMax("9999999999999.99")

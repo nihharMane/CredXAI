@@ -7,9 +7,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface CreditApplicationRepository
-        extends JpaRepository<CreditApplication, Long> {
+        extends JpaRepository<CreditApplication, Long>, JpaSpecificationExecutor<CreditApplication> {
 
     List<CreditApplication> findByUser(User user);
 
@@ -18,4 +21,8 @@ public interface CreditApplicationRepository
     List<CreditApplication> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     Optional<CreditApplication> findByIdAndUserId(Long id, Long userId);
+
+    long countByStatus(String status);
+    long countByReviewStatus(String reviewStatus);
+    long countByRiskBand(String riskBand);
 }

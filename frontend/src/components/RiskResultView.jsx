@@ -29,9 +29,10 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
   if (!result) return null;
 
   const riskBand = result.risk_band || 'UNKNOWN';
-  const probabilityPercent = result.default_probability_percent ?? (
-    result.default_probability != null ? Math.round(result.default_probability * 10000) / 100 : 0
+  const rawProbability = result.default_probability_percent ?? (
+    result.default_probability != null ? Math.round(result.default_probability * 10000) / 100 : null
   );
+  const probabilityPercent = Number.isFinite(Number(rawProbability)) ? Number(rawProbability) : null;
 
   const modelLabel = result.model_type === 'ALTERNATIVE_DATA'
     ? 'Alternative Banking Behavioral Model'
@@ -120,13 +121,13 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
               Estimated Adverse-Outcome Probability
             </div>
             <div className={`text-4xl font-extrabold tracking-tight ${riskMeta.color}`}>
-              {probabilityPercent.toFixed(2)}%
+              {probabilityPercent == null ? 'Not returned' : `${probabilityPercent.toFixed(2)}%`}
             </div>
             <div className="w-full bg-navy-800 h-2 rounded-full mt-3 overflow-hidden">
-              <div 
+              {probabilityPercent != null && <div
                 className={`h-full ${riskMeta.barColor} transition-all duration-700 ease-out`}
                 style={{ width: `${Math.min(Math.max(probabilityPercent, 2), 100)}%` }}
-              />
+              />}
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 mt-1">
               <span>0% (lower score)</span>
@@ -138,10 +139,11 @@ const RiskResultView = ({ result, onReset, modelTitle = 'Credit Risk Assessment'
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl bg-navy-900/70 border border-navy-800 p-4 text-xs">
         <div><span className="text-slate-500">Application</span><p className="mt-1 text-white font-mono">{result.application_id ? `#${result.application_id}` : 'Not available'}</p></div>
+        <div><span className="text-slate-500">Credit-history category</span><p className="mt-1 text-white">{result.model_type === 'ALTERNATIVE_DATA' ? 'No Credit History' : result.model_type === 'TRADITIONAL_DATA' ? 'Existing Credit History' : 'Not recorded'}</p></div>
         <div><span className="text-slate-500">Requested amount</span><p className="mt-1 text-white">{result.requested_loan_amount != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(result.requested_loan_amount)) : 'Not available'}</p></div>
+        <div><span className="text-slate-500">Requested tenure</span><p className="mt-1 text-white">{result.tenure_months != null ? `${result.tenure_months} months` : 'Not recorded'}</p></div>
         <div><span className="text-slate-500">Assessment time</span><p className="mt-1 text-white">{result.assessment_timestamp ? new Date(result.assessment_timestamp).toLocaleString() : 'Not available'}</p></div>
         <div><span className="text-slate-500">Model version</span><p className="mt-1 text-white font-mono">{result.model_version || 'Unversioned'}</p></div>
-        <div><span className="text-slate-500">Application status</span><p className="mt-1 text-white">{result.application_status || 'COMPLETED'}</p></div>
         <div><span className="text-slate-500">Existing monthly debt</span><p className="mt-1 text-white">{result.existing_monthly_debt != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(result.existing_monthly_debt)) : 'Not available'}</p></div>
         <div><span className="text-slate-500">Self-reported repayment history</span><p className="mt-1 text-white">{(result.repayment_history || 'UNKNOWN').replaceAll('_', ' ')}</p></div>
         {result.purpose && <div className="sm:col-span-2 lg:col-span-4"><span className="text-slate-500">Loan purpose</span><p className="mt-1 text-white break-words">{result.purpose}</p></div>}

@@ -21,7 +21,7 @@ const LoginPage = () => {
 
     const result = await login(email, password);
     if (result.success) {
-      navigate('/dashboard');
+      navigate(result.user?.role === 'ADMIN' ? '/admin' : '/dashboard');
     } else {
       setFormError(result.error);
     }
